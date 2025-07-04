@@ -4,14 +4,19 @@
 #   "requests==2.31.0",
 #   "pydantic==2.10.5",
 #   "polars==1.18.0",
+#   "altair==5.5.0",
 #   "marimo",
 # ]
 # ///
 
 import marimo
 
-__generated_with = "0.14.0"
+__generated_with = "0.14.10"
 app = marimo.App(width="medium", app_title="DeHashed")
+
+with app.setup:
+    # Initialization code that runs before all other cells
+    pass
 
 
 @app.cell
@@ -23,6 +28,8 @@ def _():
     import polars as pl
     from pydantic import BaseModel, Field
     from typing import Optional,List
+
+    import urllib.parse
 
     import asyncio
 
@@ -55,7 +62,10 @@ def _(api_key, requests):
                "regex": regex,
                "de_dupe": de_dupe}
 
-        # print(qry)
+        print(qry)
+
+        # if regex:
+        #    qry = urllib.parse.urlencode(qry)
 
         res = requests.post("https://api.dehashed.com/v2/search", 
                             json=qry,
@@ -94,8 +104,8 @@ def _(mo):
 
         if "error" in rsp.keys():
             return mo.callout(f"""
-            Error: {rsp["error"]}
-            """, kind="warn")
+                Error: {rsp["error"]}
+                """, kind="warn")
         else:
             # return mo.md(f"""
             #    The search against **{srch}** returned 
@@ -319,7 +329,7 @@ def _(mo, response, show_resp, srch, srch_button):
 def _(Dehashed, response, srch_button):
     l = []
     if srch_button.value:
-        if "entries" in response:
+        if "entries" in response.keys() and len(response["entries"]) > 0:
             for i in range(len(response["entries"])):
                 m = Dehashed.model_validate(response["entries"][i])
                 l.append(m)

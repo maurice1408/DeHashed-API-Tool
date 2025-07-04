@@ -65,6 +65,12 @@ used to keep rows of interest.
 Either table can be downloaded or coppied to clipboard using the
 `Download` at the bottom right of either table.
 
+To shutdown the app:
+
+1. Close the web page
+2. Back in the terminal hit Ctrl(⌘)+c to terminate the Marimo
+   server.
+
 Hopefully you will not hit any issues that highlight dependencies
 on my environment!  Let me know how it goes and / or any
 questions or suggestions!
