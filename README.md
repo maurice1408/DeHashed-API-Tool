@@ -34,17 +34,8 @@ deh` and copy the attached `deh.py` file into that directory.
 From that directory issue the command
 
 ```
-uvx marimo run deh.py
+uvx marimo run --sandbox deh.py
 ```
-
-You should get the prompt...
-
-```
-This notebook has inlined package dependencies.
-Run in a sandboxed venv containing this notebook's dependencies? [Y/n]:
-```
-
-answer `Y` to that.
 
 That should open up the search tool in your browser. 
 
@@ -58,11 +49,11 @@ The 2 icons at the bottom left of the results table let you:
 2. Toggle the row viewer that will appear to the right of the
    table
 
-Selecting rows (checkbox to let of row) will populate rows in
+Selecting rows (checkbox to left of row) will populate rows in
 the table below the main results table. So selecting rows can be
-used to keep rows of interest.
+used to bookmark rows of interest.
 
-Either table can be downloaded or coppied to clipboard using the
+Either table can be downloaded or copied to the clipboard using the
 `Download` at the bottom right of either table.
 
 To shutdown the app:
