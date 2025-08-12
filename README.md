@@ -13,7 +13,7 @@ Install `uv` on your mac using the command:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-or if you are more comfortable using Homebrew
+or if you are more comfortable using Homebrew then ...
 
 
 ```

@@ -11,7 +11,7 @@
 
 import marimo
 
-__generated_with = "0.14.10"
+__generated_with = "0.14.17"
 app = marimo.App(width="medium", app_title="DeHashed")
 
 with app.setup:
@@ -27,7 +27,7 @@ def _():
     import hashlib
     import polars as pl
     from pydantic import BaseModel, Field
-    from typing import Optional,List
+    from typing import Optional, List
 
     import urllib.parse
 
@@ -40,56 +40,64 @@ def _():
 @app.cell
 def _(conv_to_str, mo, pl):
     def disply_res(results):
-
         df = pl.DataFrame(results)
         df_str = conv_to_str(df)
         y = mo.ui.table(df_str, selection="multi")
         # s = y.value
 
         return y
-
     return (disply_res,)
 
 
 @app.cell
 def _(api_key, requests):
-    async def v2_search(query:str,page:int,size:int,wildcard:bool,regex:bool,de_dupe:bool) -> dict:
+    async def v2_search(
+        query: str,
+        page: int,
+        size: int,
+        wildcard: bool,
+        regex: bool,
+        de_dupe: bool,
+    ) -> dict:
+        qry = {
+            "query": query,
+            "page": page,
+            "size": size,
+            "wildcard": wildcard,
+            "regex": regex,
+            "de_dupe": de_dupe,
+        }
 
-        qry = {"query": query,
-               "page": page,
-               "size": size,
-               "wildcard": wildcard,
-               "regex": regex,
-               "de_dupe": de_dupe}
-
-        print(qry)
-
-        # if regex:
-        #    qry = urllib.parse.urlencode(qry)
-
-        res = requests.post("https://api.dehashed.com/v2/search", 
-                            json=qry,
-                            headers={
-                                "Content-Type": "application/json",
-                                "DeHashed-Api-Key": api_key,
-                            })
+        res = requests.post(
+            "https://api.dehashed.com/v2/search",
+            json=qry,
+            headers={
+                "Content-Type": "application/json",
+                "DeHashed-Api-Key": api_key,
+            },
+        )
         return res.json()
     return (v2_search,)
 
 
 @app.cell
 def _(api_key, hashlib, requests):
-    def get_sha256(password:str) -> str:
-        return hashlib.sha256(password.encode('utf-8')).hexdigest()
+    def get_sha256(password: str) -> str:
+        return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
-    def v2_search_password(password:str)-> dict:
+
+    def v2_search_password(password: str) -> dict:
         sha256_hash = get_sha256(password)
-        res = requests.post("https://api.dehashed.com/v2/search-password", json={
-            "sha256_hashed_password": sha256_hash,
-        }, headers={
-            "Content-Type": "application/json",
-            "DeHashed-Api-Key": api_key,
-        })
+        res = requests.post(
+            "https://api.dehashed.com/v2/search-password",
+            json={
+                "sha256_hashed_password": sha256_hash,
+            },
+            headers={
+                "Content-Type": "application/json",
+                "DeHashed-Api-Key": api_key,
+            },
+        )
         return res.json()
     return
 
@@ -97,18 +105,20 @@ def _(api_key, hashlib, requests):
 @app.cell
 def _(mo):
     def show_resp(rsp, srch):
-
         # print("In function show_resp")
         # print(type(rsp))
         # print(rsp.keys())
 
         if "error" in rsp.keys():
-            return mo.callout(f"""
+            return mo.callout(
+                f"""
                 Error: {rsp["error"]}
-                """, kind="warn")
+                """,
+                kind="warn",
+            )
         else:
             # return mo.md(f"""
-            #    The search against **{srch}** returned 
+            #    The search against **{srch}** returned
             #    **{len(rsp["entries"])}** entries in **{rsp["took"]}**,
             #    you have a remaining balance of **{rsp["balance"]}** API calls.
             #    """
@@ -118,7 +128,6 @@ def _(mo):
             # srch_bal = mo.stat(label="API Balance", value=rsp["balance"])
 
             return mo.hstack(items=[srch_term, srch_ent, srch_time])
-
     return (show_resp,)
 
 
@@ -168,9 +177,10 @@ def _(pl):
             pl.col("company").cast(pl.List(pl.String)).list.join(join_str),
             pl.col("url").cast(pl.List(pl.String)).list.join(join_str),
             pl.col("social").cast(pl.List(pl.String)).list.join(join_str),
-            pl.col("cryptocurrency_address").cast(pl.List(pl.String)).list.join(join_str)
+            pl.col("cryptocurrency_address")
+            .cast(pl.List(pl.String))
+            .list.join(join_str),
         )
-
     return (conv_to_str,)
 
 
@@ -182,16 +192,55 @@ def _(mo):
 
     ## Introduction
 
-    This Marimo notebook will allow you to enter a search phrase against DeHashed. 
+    This notebook will allow you to enter a search phrase against [DeHashed](https://app.dehashed.com/search)
 
     The results will be returned in a Polars DataFrame. The Marimo UI on the DataFrame will allow you to, search, sort and download the returned data.
+
+    Expand the "Instructions" below for usage help.
+    """
+    )
+    return
+
+
+@app.cell
+def _(mo):
+    mo.accordion(
+
+        {"Instructions": mo.md(f"""
+    Specific attributes may be searched for by prefixing the search value with the attribute name e.g.
+
+    ```
+    username:maurice1408
+    ```
+
+    Attributes that can be searched for are
+
+    1. email
+    2. username
+    3. ip_address
+    4. name
+    5. address
+    6. phone
+    7. vin
+    8. domain
+    9. database_name
+
+    It is possible to combine multiple operators - separated with an & - in one search (criteria are AND'd) e.g.
+
+    ```
+    email:maurice1408@gmail.com&username:maurice1408
+    ```
+
+    To use wildcards or regular expressions in the search value, click the corresponding radio button.
+
+    For reference see the DeHashed documentation at [Search Guide](https://app.dehashed.com/documentation/search-guide)
 
     /// note | Note 
 
     _not_ all elements in each row will be populated, it will depend on the search results.
     ///
     """
-    )
+    )})
     return
 
 
@@ -214,7 +263,7 @@ def _(mo):
                               stop=10000, 
                               step=1000, 
                               value=1000, 
-                              show_value=True, 
+                              show_value=True,
                               label="Number of results to return"
                              )
 
@@ -228,26 +277,19 @@ def _(mo):
 
 @app.cell
 def _(dedupe_check, mo, res_slider, search_type):
-    mo.vstack(align='center',
-        items=[
-            res_slider,
-            dedupe_check,
-            search_type
-        ]
-    )
+    mo.vstack(align="center", items=[res_slider, dedupe_check, search_type])
     return
 
 
 @app.cell
 def _(mo):
-    input_srch = mo.ui.text(label="Search for:", full_width=True, placeholder="Enter search text")
-    srch_button = mo.ui.run_button(label="Go!", tooltip="Click to run search", full_width=True)
-    mo.vstack(
-        items=[
-            input_srch,
-            srch_button
-        ],align="stretch"
+    input_srch = mo.ui.text(
+        label="Search for:", full_width=True, placeholder="Enter search text"
     )
+    srch_button = mo.ui.run_button(
+        label="Go!", tooltip="Click to run search", full_width=True, kind="neutral"
+    )
+    mo.vstack(items=[input_srch, srch_button], align="stretch")
     return input_srch, srch_button
 
 
@@ -295,7 +337,9 @@ async def _(
 
     if srch_button.value:
         with mo.status.spinner(title="searching...") as _spinner:
-            response = await v2_search(srch, 1, res_slider.value, wildcard, regexp, dedupe_check.value)
+            response = await v2_search(
+                srch, 1, res_slider.value, wildcard, regexp, dedupe_check.value
+            )
             _spinner.update("Done")
 
     _output
@@ -310,17 +354,17 @@ def _(mo, response, show_resp, srch, srch_button):
         _stat = show_resp(response, srch)
         if _bal := response.get("balance"):
             if _bal < 100:
-                _callout = mo.callout(f"Low API credit balance: {_bal}", kind="warn")
+                _callout = mo.callout(
+                    f"Low API credit balance: {_bal}", kind="warn"
+                )
             else:
-                _callout = mo.callout(F"Balance is {_bal} API credits", kind="info")
+                _callout = mo.callout(
+                    f"Balance is {_bal} API credits", kind="info"
+                )
         else:
             _callout = mo.callout("no balance returned", kind="warn")
 
-        _op = mo.vstack(items=[
-                        _stat,
-                        _callout
-                        ]
-                     )
+        _op = mo.vstack(items=[_stat, _callout])
     _op
     return
 
@@ -342,7 +386,7 @@ def _(l, pl):
     return (df,)
 
 
-@app.cell(disabled=True)
+@app.cell
 def _(df, pl, srch_button):
     tbl = None
     if srch_button.value:
