@@ -3,27 +3,25 @@
 A small Marimo Notebook that acts as a browser based client for
 DeHashed.
 
-
 In an attempt to avoid Python "dependency hell" the client runs
 through the 'uv` package manager.
 
 Install `uv` on your mac using the command:
 
-```
+```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 or if you are more comfortable using Homebrew then ...
 
-
-```
+```bash
 brew install uv
 ```
 
 if `uv` installs successfully then the command uv --version
 should give you something along the lines of...
 
-```
+```bash
 uv --version 
 uv 0.7.12 (dc3fd4647 2025-06-06)
 ```
@@ -33,7 +31,7 @@ deh` and copy the attached `deh.py` file into that directory.
 
 From that directory issue the command
 
-```
+```bash
 uvx marimo run --sandbox deh.py
 ```
 

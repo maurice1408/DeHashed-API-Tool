@@ -284,18 +284,15 @@ def _(dedupe_check, mo, res_slider, search_type):
 @app.cell
 def _(mo):
     input_srch = mo.ui.text(
-        label="Search for:", full_width=True, placeholder="Enter search text"
+        label="Search for:", full_width=True, placeholder="Enter search text and hit Enter ↩️ or tab ⇥"
     )
-    srch_button = mo.ui.run_button(
-        label="Go!", tooltip="Click to run search", full_width=True, kind="neutral"
-    )
-    mo.vstack(items=[input_srch, srch_button], align="stretch")
-    return input_srch, srch_button
+    input_srch
+    return (input_srch,)
 
 
 @app.cell
-def _(input_srch, srch_button):
-    if srch_button.value: 
+def _(input_srch):
+    if len(input_srch.value.strip()) > 0: 
         srch = input_srch.value
     return (srch,)
 
@@ -322,11 +319,11 @@ def _(search_type):
 @app.cell
 async def _(
     dedupe_check,
+    input_srch,
     mo,
     regexp,
     res_slider,
     srch,
-    srch_button,
     v2_search,
     wildcard,
 ):
@@ -335,22 +332,24 @@ async def _(
 
     response = {}
 
-    if srch_button.value:
+    if len(input_srch.value.strip()) > 0: 
         with mo.status.spinner(title="searching...") as _spinner:
             response = await v2_search(
                 srch, 1, res_slider.value, wildcard, regexp, dedupe_check.value
             )
             _spinner.update("Done")
 
+
+
     _output
     return (response,)
 
 
 @app.cell
-def _(mo, response, show_resp, srch, srch_button):
+def _(input_srch, mo, response, show_resp, srch):
     _op = None
 
-    if srch_button.value:
+    if len(input_srch.value.strip()) > 0: 
         _stat = show_resp(response, srch)
         if _bal := response.get("balance"):
             if _bal < 100:
@@ -370,9 +369,9 @@ def _(mo, response, show_resp, srch, srch_button):
 
 
 @app.cell
-def _(Dehashed, response, srch_button):
+def _(Dehashed, input_srch, response):
     l = []
-    if srch_button.value:
+    if len(input_srch.value.strip()) > 0: 
         if "entries" in response.keys() and len(response["entries"]) > 0:
             for i in range(len(response["entries"])):
                 m = Dehashed.model_validate(response["entries"][i])
@@ -387,9 +386,9 @@ def _(l, pl):
 
 
 @app.cell
-def _(df, pl, srch_button):
+def _(df, input_srch, pl):
     tbl = None
-    if srch_button.value:
+    if len(input_srch.value.strip()) > 0: 
         df_str = df.with_columns(
                 pl.col("email").cast(pl.List(pl.String)).list.join(", "),
                 pl.col("ip_address").cast(pl.List(pl.String)).list.join(", "),
@@ -414,10 +413,10 @@ def _(df, pl, srch_button):
 
 
 @app.cell
-def _(disply_res, l, srch_button):
+def _(disply_res, input_srch, l):
     r = None
 
-    if srch_button.value:
+    if len(input_srch.value.strip()) > 0: 
         r = disply_res(l)
 
     r
