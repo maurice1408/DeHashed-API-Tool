@@ -11,10 +11,12 @@
 
 import marimo
 
-__generated_with = "0.14.17"
+__generated_with = "0.16.5"
 app = marimo.App(width="medium", app_title="DeHashed")
 
 with app.setup:
+
+
     # Initialization code that runs before all other cells
     pass
 
@@ -312,7 +314,6 @@ def _(search_type):
         case "regexp":
             regexp=True
             wildcard=False
-
     return regexp, wildcard
 
 
