@@ -387,25 +387,26 @@ def _(l, pl):
 
 
 @app.cell
-def _(df, input_srch, pl):
+def _(df, input_srch, l, pl):
     tbl = None
     if len(input_srch.value.strip()) > 0: 
-        df_str = df.with_columns(
-                pl.col("email").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("ip_address").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("username").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("password").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("hashed_password").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("name").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("dob").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("license_plate").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("address").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("phone").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("company").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("url").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("social").cast(pl.List(pl.String)).list.join(", "),
-                pl.col("cryptocurrency_address").cast(pl.List(pl.String)).list.join(", ")
-            )
+        if len(l) > 0:
+            df_str = df.with_columns(
+                    pl.col("email").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("ip_address").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("username").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("password").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("hashed_password").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("name").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("dob").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("license_plate").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("address").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("phone").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("company").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("url").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("social").cast(pl.List(pl.String)).list.join(", "),
+                    pl.col("cryptocurrency_address").cast(pl.List(pl.String)).list.join(", ")
+                )
 
         # tbl = mo.ui.table(df_str, selection="multi")
 
@@ -414,11 +415,14 @@ def _(df, input_srch, pl):
 
 
 @app.cell
-def _(disply_res, input_srch, l):
+def _(disply_res, input_srch, l, mo):
     r = None
 
-    if len(input_srch.value.strip()) > 0: 
-        r = disply_res(l)
+    if len(input_srch.value.strip()) > 0:
+        if len(l) > 0:
+            r = disply_res(l)
+        else:
+            r = mo.md(f"No results found")
 
     r
     return (r,)
