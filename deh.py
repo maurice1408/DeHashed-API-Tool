@@ -13,7 +13,7 @@
 
 import marimo
 
-__generated_with = "0.17.0"
+__generated_with = "0.19.2"
 app = marimo.App(width="medium", app_title="DeHashed")
 
 with app.setup:
@@ -260,8 +260,7 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     # DeHashed Search
 
     ## Introduction
@@ -273,8 +272,7 @@ def _(mo):
     The results will be returned in a table. The Marimo UI on the table will allow you to, search, sort and download the returned data.
 
     Expand the "Instructions" below for usage help.
-    """
-    )
+    """)
     return
 
 
@@ -526,25 +524,24 @@ def _(detail_list, disply_res, mo, response_list):
     try:
         if len(response_list) > 0:
             if len(detail_list) > 0:
-                r = mo.vstack(
-                    [mo.md("## Search Detail").center(), disply_res(detail_list)]
-                )
+                dl = disply_res(detail_list)
+                r = mo.vstack([mo.md("## Search Detail").center(), dl])
             else:
                 r = mo.md(f"No results found")
     except:
         pass
 
     r
-    return (r,)
+    return (dl,)
 
 
 @app.cell
-def _(l, r):
+def _(dl, response_list):
     v = None
 
     try:
-        if len(l):
-            v = r.value
+        if len(response_list):
+            v = dl.value
     except:
         pass
     v
