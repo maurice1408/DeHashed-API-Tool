@@ -27,19 +27,19 @@
 
    ```
    uv --version
-   uv 0.8.24 (252f88733 2025-10-07)
+   uv 0.9.26 (ee4f00362 2026-01-15)
    ```
 
 2. Then to load the DeHashed marimo notebook issue the
    `uvx` command below:
 
 ```
- uvx marimo run --sandbox  https://raw.githubusercontent.com/maurice1408/DeHashed-API-Tool/refs/heads/main/deh.py
+ uvx marimo run --sandbox --trusted https://raw.githubusercontent.com/maurice1408/DeHashed-API-Tool/refs/heads/main/deh.py
 ```
 
 The notebook should open in a browser window.
 
 To end the session, close the browser window and terminate the
-`uvx` command by `Ctrl+c` in the terminal window.
+`uvx` command by `Ctrl+c` in the terminal window (respond 'y').
 
 
