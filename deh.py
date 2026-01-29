@@ -13,7 +13,7 @@
 
 import marimo
 
-__generated_with = "0.19.2"
+__generated_with = "0.19.6"
 app = marimo.App(width="medium", app_title="DeHashed")
 
 with app.setup:
@@ -209,6 +209,17 @@ def _(Response, logfire, pl, settings):
 
 
 @app.cell
+def _(requests):
+    def get_ipaddr() -> str:
+        url = "https://ipv4.icanhazip.com/"
+
+        ipv4 = str(requests.get(url).text).strip()
+
+        return ipv4
+    return (get_ipaddr,)
+
+
+@app.cell
 def _(Annotated, Any, BaseModel, BeforeValidator):
     def ensure_string(value: Any) -> Any:
         if isinstance(value, list):
@@ -259,9 +270,9 @@ def _():
 
 
 @app.cell
-def _(mo):
-    mo.md(r"""
-    # DeHashed Search
+def _(get_ipaddr, mo):
+    mo.md(f"""
+    # DeHashed Search - your IP Address {get_ipaddr()}
 
     ## Introduction
 
@@ -489,6 +500,7 @@ def _(mo, res_slider, response_list, show_resp, srch):
                 mo.ui.table(
                     _summary,
                     show_data_types=False,
+                    selection=None,
                     header_tooltip={
                         "balance": "DeHashed API Credits Remaining",
                         "took": "Query milliseconds",
@@ -545,6 +557,12 @@ def _(dl, response_list):
     except:
         pass
     v
+    return
+
+
+@app.cell
+def _(get_ipaddr):
+    get_ipaddr()
     return
 
 
