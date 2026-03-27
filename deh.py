@@ -13,7 +13,7 @@
 
 import marimo
 
-__generated_with = "0.19.6"
+__generated_with = "0.20.4"
 app = marimo.App(width="medium", app_title="DeHashed")
 
 with app.setup:
@@ -89,6 +89,7 @@ def _(mo, pl):
         # s = y.value
 
         return y
+
     return (disply_res,)
 
 
@@ -122,6 +123,7 @@ def _(api_key, logfire, requests):
             },
         )
         return res.json()
+
     return (v2_search,)
 
 
@@ -144,6 +146,7 @@ def _(api_key, hashlib, requests):
             },
         )
         return res.json()
+
     return
 
 
@@ -216,6 +219,7 @@ def _(requests):
         ipv4 = str(requests.get(url).text).strip()
 
         return ipv4
+
     return (get_ipaddr,)
 
 
@@ -256,6 +260,7 @@ def _(Annotated, Any, BaseModel, BeforeValidator):
         took: str = ""
         total: int = 0
         error: str = ""
+
     return Dehashed, Response
 
 
@@ -366,12 +371,14 @@ def _(mo):
         value="wildcard",
         label="Choose Search Type",
     )
-    return dedupe_check, res_slider, search_type
+
+    page_number = mo.ui.number(start=1, stop=20, label="Page")
+    return dedupe_check, page_number, res_slider, search_type
 
 
 @app.cell
-def _(dedupe_check, mo, res_slider, search_type):
-    mo.vstack(align="center", items=[res_slider, dedupe_check, search_type])
+def _(dedupe_check, mo, page_number, res_slider, search_type):
+    mo.vstack(align="center", items=[res_slider, page_number, dedupe_check, search_type])
     return
 
 
@@ -438,6 +445,7 @@ async def _(
     dedupe_check,
     logfire,
     mo,
+    page_number,
     regexp,
     res_slider,
     srch,
@@ -457,7 +465,7 @@ async def _(
                 with mo.status.spinner(title="searching...") as _spinner:
                     response = await v2_search(
                         s,
-                        1,
+                        page_number.value,
                         res_slider.value,
                         wildcard,
                         regexp,
