@@ -8,12 +8,14 @@
 #   "marimo",
 #   "python-dotenv==1.1.1",
 #   "logfire",
+#   "vegafusion==2.0.3",
+#   "vl-convert-python==1.9.0.post1",
 # ]
 # ///
 
 import marimo
 
-__generated_with = "0.20.4"
+__generated_with = "0.22.5"
 app = marimo.App(width="medium", app_title="DeHashed")
 
 with app.setup:
@@ -58,7 +60,7 @@ def _():
 
 
 @app.cell
-def _(dataclass, dotenv_values, logfire):
+def _(dataclass, dotenv_values, get_ipaddr, logfire):
     env_settings = dotenv_values(".env")
 
 
@@ -72,7 +74,7 @@ def _(dataclass, dotenv_values, logfire):
     settings = Settings()
 
     logfire.configure(token=settings.logfire_token, service_name="deh")
-    logfire.info("Session initialised")
+    logfire.info(f"Session initialised - from {get_ipaddr()}")
     return (settings,)
 
 
@@ -91,6 +93,25 @@ def _(mo, pl):
         return y
 
     return (disply_res,)
+
+
+@app.cell
+def _(requests):
+    async def get_datawells(qry_count: int, qry_page: int) -> dict:
+
+        qry_url = "https://api.dehashed.com/data-wells"
+
+        payload = {"count": qry_count, "page": qry_page}
+
+        r = requests.get(qry_url, params=payload)
+
+        j = r.json()
+
+        print(j)
+
+        return j
+
+    return (get_datawells,)
 
 
 @app.cell
@@ -261,23 +282,23 @@ def _(Annotated, Any, BaseModel, BeforeValidator):
         total: int = 0
         error: str = ""
 
-    return Dehashed, Response
+
+    class DataWell(BaseModel):
+        name: Annotated[str, BeforeValidator(ensure_string)] = None
+        data: Annotated[str, BeforeValidator(ensure_string)] = None
+        date: Annotated[str, BeforeValidator(ensure_string)] = None
+        description: Annotated[str, BeforeValidator(ensure_string)] = None
+        records: int
+        is_sensitive: bool
+        insights: Annotated[str, BeforeValidator(ensure_string)] = None
+
+    return DataWell, Dehashed, Response
 
 
 @app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _(get_ipaddr, mo):
+def _(mo):
     mo.md(f"""
-    # DeHashed Search - your IP Address {get_ipaddr()}
+    # DeHashed Search
 
     ## Introduction
 
@@ -318,7 +339,7 @@ def _(mo):
     It is possible to combine multiple operators - separated with an & - in one search (criteria are AND'd) e.g.
 
     ```
-    email:maurice1408@gmail.com&username:maurice1408
+    email:"maurice1408@gmail.com"&username:"maurice1408"
     ```
 
     To use wildcards or regular expressions in the search value, click the corresponding radio button.
@@ -354,6 +375,13 @@ def _(key):
 
 
 @app.cell
+def _(get_ipaddr, mo):
+    info_stat = mo.hstack([mo.stat(value=get_ipaddr(), label="IP Address")])
+    info_stat
+    return
+
+
+@app.cell
 def _(mo):
     res_slider = mo.ui.slider(
         start=0,
@@ -378,7 +406,9 @@ def _(mo):
 
 @app.cell
 def _(dedupe_check, mo, page_number, res_slider, search_type):
-    mo.vstack(align="center", items=[res_slider, page_number, dedupe_check, search_type])
+    mo.vstack(
+        align="center", items=[res_slider, page_number, dedupe_check, search_type]
+    )
     return
 
 
@@ -557,6 +587,7 @@ def _(detail_list, disply_res, mo, response_list):
 
 @app.cell
 def _(dl, response_list):
+    # Catch bookmarked results
     v = None
 
     try:
@@ -569,8 +600,74 @@ def _(dl, response_list):
 
 
 @app.cell
-def _(get_ipaddr):
-    get_ipaddr()
+def _(mo):
+    dw_btn = mo.ui.run_button(
+        kind="warn",
+        label="Click to fetch DeHashed Datawell details - Warning: This will take approx 5 minutes",
+        disabled=False,
+        full_width=True,
+    )
+    dw_btn
+    return (dw_btn,)
+
+
+@app.cell
+async def _(DataWell, dw_btn, get_datawells, mo, pl):
+    # Only run this cell when button clicked
+    mo.stop(not dw_btn.value)
+
+    # Get the first batch of datawells to determine
+    # the totall number of datawells and therefore
+    # how many pages there are
+    w = await get_datawells(20, 1)
+
+    _page_count = 50  # NOTE: This must be 20 or 50
+
+    _total_wells = int(w["total"])
+
+    pages = (_total_wells // _page_count) + (
+        1 if (_total_wells % _page_count) > 0 else 0
+    )
+
+    print(f"There are {pages} pages")
+
+    _datawell_list = []
+
+    with mo.status.spinner(title="Loading DataWell Details") as _spinner:
+        for p in range(1, pages + 1):
+            if (p % 10) == 0:
+                _spinner.update(
+                    f"Loaded {len(_datawell_list)} datawells of {_total_wells}"
+                )
+
+            w = await get_datawells(50, p)
+
+            # print(len(w["data_wells"]))
+
+            for _d in w["data_wells"]:
+                _dw = DataWell.model_validate(_d)
+                _datawell_list.append(_dw)
+
+        _spinner.update("Done!")
+
+    _pl_dw = pl.DataFrame(_datawell_list)
+
+    # Convert the string date value to date type and drop
+    # original column
+    _pl_dw = _pl_dw.with_columns(
+        pl.col("date").str.to_date(format="%Y-%m-%d", strict=False).alias("dt")
+    )
+
+    _pl_dw = _pl_dw.drop("date")
+
+
+    tbl_dw = mo.ui.table(
+        _pl_dw,
+        show_data_types=False,
+        selection="multi",
+    )
+
+    tbl_dw
     return
 
 
