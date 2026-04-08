@@ -27,6 +27,7 @@ with app.setup:
 def _():
     import marimo as mo
     import requests
+    from requests.adapters import HTTPAdapter
 
     import hashlib
     import polars as pl
@@ -38,6 +39,7 @@ def _():
     from dataclasses import dataclass
 
     import urllib.parse
+    from urllib3.util import Retry
 
     import asyncio
 
@@ -49,6 +51,8 @@ def _():
         Any,
         BaseModel,
         BeforeValidator,
+        HTTPAdapter,
+        Retry,
         dataclass,
         dotenv_values,
         hashlib,
@@ -95,23 +99,22 @@ def _(mo, pl):
     return (disply_res,)
 
 
-@app.cell
-def _(requests):
-    async def get_datawells(qry_count: int, qry_page: int) -> dict:
+@app.function
+async def get_datawells(session, qry_count: int, qry_page: int) -> dict:
 
-        qry_url = "https://api.dehashed.com/data-wells"
+    qry_url = "https://api.dehashed.com/data-wells"
 
-        payload = {"count": qry_count, "page": qry_page}
+    payload = {"count": qry_count, "page": qry_page}
 
-        r = requests.get(qry_url, params=payload)
+    r = session.get(qry_url, params=payload)
 
+    if r.status_code == 200:
         j = r.json()
+    else:
+        print(f"Request returned {r.status_code}")
+        j = {}
 
-        print(j)
-
-        return j
-
-    return (get_datawells,)
+    return j
 
 
 @app.cell
@@ -143,7 +146,14 @@ def _(api_key, logfire, requests):
                 "DeHashed-Api-Key": api_key,
             },
         )
-        return res.json()
+
+        if res.status_code == 200:
+            j = res.json()
+        else:
+            print(f"search returned status code {res.status_code}")
+            j = {}
+
+        return j
 
     return (v2_search,)
 
@@ -603,7 +613,7 @@ def _(dl, response_list):
 def _(mo):
     dw_btn = mo.ui.run_button(
         kind="warn",
-        label="Click to fetch DeHashed Datawell details - Warning: This will take approx 5 minutes",
+        label="Click to fetch DeHashed Data Well details - Warning: This will take approx 5 minutes",
         disabled=False,
         full_width=True,
     )
@@ -612,14 +622,24 @@ def _(mo):
 
 
 @app.cell
-async def _(DataWell, dw_btn, get_datawells, mo, pl):
+async def _(DataWell, HTTPAdapter, Retry, dw_btn, logfire, mo, pl, requests):
     # Only run this cell when button clicked
     mo.stop(not dw_btn.value)
+
+    logfire.info("Fetching DeHashed Data Wells")
+
+    retry_strategy = Retry(total=4, status_forcelist=[403, 429], backoff_factor=2)
+
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+
+    session = requests.Session()
+    session.mount("https://", adapter)
+
 
     # Get the first batch of datawells to determine
     # the totall number of datawells and therefore
     # how many pages there are
-    w = await get_datawells(20, 1)
+    w = await get_datawells(session, 20, 1)
 
     _page_count = 50  # NOTE: This must be 20 or 50
 
@@ -629,18 +649,18 @@ async def _(DataWell, dw_btn, get_datawells, mo, pl):
         1 if (_total_wells % _page_count) > 0 else 0
     )
 
-    print(f"There are {pages} pages")
+    logfire.info(f"There are {pages} pages of DeHashed Data Well entries")
 
     _datawell_list = []
 
     with mo.status.spinner(title="Loading DataWell Details") as _spinner:
-        for p in range(1, pages + 1):
+        for p in range(1, 20):  #  pages + 1):
             if (p % 10) == 0:
                 _spinner.update(
                     f"Loaded {len(_datawell_list)} datawells of {_total_wells}"
                 )
 
-            w = await get_datawells(50, p)
+            w = await get_datawells(session, _page_count, p)
 
             # print(len(w["data_wells"]))
 
