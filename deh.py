@@ -15,7 +15,7 @@
 
 import marimo
 
-__generated_with = "0.22.5"
+__generated_with = "0.23.0"
 app = marimo.App(width="medium", app_title="DeHashed")
 
 with app.setup:
