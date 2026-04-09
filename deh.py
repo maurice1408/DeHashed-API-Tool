@@ -654,7 +654,7 @@ async def _(DataWell, HTTPAdapter, Retry, dw_btn, logfire, mo, pl, requests):
     _datawell_list = []
 
     with mo.status.spinner(title="Loading DataWell Details") as _spinner:
-        for p in range(1, 20):  #  pages + 1):
+        for p in range(1, pages + 1):
             if (p % 10) == 0:
                 _spinner.update(
                     f"Loaded {len(_datawell_list)} datawells of {_total_wells}"
