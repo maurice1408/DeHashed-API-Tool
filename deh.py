@@ -78,8 +78,21 @@ def _(dataclass, dotenv_values, get_ipaddr, logfire):
     settings = Settings()
 
     logfire.configure(token=settings.logfire_token, service_name="deh")
-    logfire.info(f"Session initialised - from {get_ipaddr()}")
+    logfire.info("Session initialised - from {ip}", ip=get_ipaddr())
     return (settings,)
+
+
+@app.cell
+def _(HTTPAdapter, Retry, requests):
+    retry_strategy = Retry(
+        total=5, status_forcelist=[400, 403, 429], backoff_factor=2
+    )
+
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+
+    session = requests.Session()
+    session.mount("https://", adapter)
+    return (session,)
 
 
 @app.cell
@@ -118,15 +131,16 @@ async def get_datawells(session, qry_count: int, qry_page: int) -> dict:
 
 
 @app.cell
-def _(api_key, logfire, requests):
+def _(api_key, logfire):
     async def v2_search(
+        session,
         query: str,
         page: int,
         size: int,
         wildcard: bool,
         regex: bool,
         de_dupe: bool,
-    ) -> dict:
+    ):
         qry = {
             "query": query,
             "page": page,
@@ -138,7 +152,7 @@ def _(api_key, logfire, requests):
 
         logfire.debug("Query: {query=!r}", query=qry)
 
-        res = requests.post(
+        res = session.post(
             "https://api.dehashed.com/v2/search",
             json=qry,
             headers={
@@ -147,11 +161,16 @@ def _(api_key, logfire, requests):
             },
         )
 
+        logfire.debug(
+            "Request response code: {http_status_code}",
+            http_status_code=res.status_code,
+        )
+
         if res.status_code == 200:
-            j = res.json()
+            # j = res.json()
+            j = res.status_code, res.json()
         else:
-            print(f"search returned status code {res.status_code}")
-            j = {}
+            j = res.status_code, {}
 
         return j
 
@@ -183,7 +202,7 @@ def _(api_key, hashlib, requests):
 
 @app.cell
 def _(Response, logfire, pl, settings):
-    def show_resp(rsp, srch):
+    def show_resp(rsp, srch, resp_codes):
         # print("In function show_resp")
         # print(type(rsp))
         # print(rsp.keys())
@@ -200,21 +219,23 @@ def _(Response, logfire, pl, settings):
             else:
                 d = {
                     "search": srch[i],
-                    "balance": r["balance"],
-                    "took": r["took"],
-                    "total": r["total"],
+                    "http_status": resp_codes[i],
+                    "balance": r.get("balance", 0),
+                    "took": r.get("took", "0"),
+                    "total": r.get("total", 0),
                     "error": "",
                 }
                 logfire.info(
                     "Results - Search: {search}, total: {total}, balance: {balance}",
                     search=srch[i],
-                    total=r["total"],
-                    balance=r["balance"],
+                    total=r.get("total", 0),
+                    balance=r.get("balance", 0),
                 )
 
-                if int(r["balance"]) < int(settings.low_balance_alert):
+                if int(r.get("balance", "0")) < int(settings.low_balance_alert):
                     logfire.warning(
-                        "Balance is low: {balance}", balance=int(r["balance"])
+                        "Balance is low: {balance}",
+                        balance=int(r.get("balance", "0")),
                     )
 
             responses.append(Response.model_validate(d))
@@ -287,6 +308,7 @@ def _(Annotated, Any, BaseModel, BeforeValidator):
 
     class Response(BaseModel):
         search: str = ""
+        http_status: int = 0
         balance: int = 0
         took: str = ""
         total: int = 0
@@ -442,6 +464,7 @@ def _(mo):
 @app.cell
 def _(fileup, input_srch, logfire, mo):
     srch = []
+    resp_codes = []
 
     try:
         if len(input_srch.value.strip()) > 0:
@@ -459,7 +482,7 @@ def _(fileup, input_srch, logfire, mo):
                 )
     except TypeError:
         mo.stop(1 == 1)
-    return (srch,)
+    return resp_codes, srch
 
 
 @app.cell
@@ -488,6 +511,8 @@ async def _(
     page_number,
     regexp,
     res_slider,
+    resp_codes,
+    session,
     srch,
     v2_search,
     wildcard,
@@ -503,7 +528,8 @@ async def _(
         with logfire.span("Processing {cnt} searches", cnt=(len(srch))):
             for s in srch:
                 with mo.status.spinner(title="searching...") as _spinner:
-                    response = await v2_search(
+                    http_status, response = await v2_search(
+                        session,
                         s,
                         page_number.value,
                         res_slider.value,
@@ -514,6 +540,8 @@ async def _(
                     _spinner.update("Done")
 
                 response_list.append(response)
+                resp_codes.append(http_status)
+
             logfire.info("Finished")
 
     _output
@@ -521,12 +549,12 @@ async def _(
 
 
 @app.cell
-def _(mo, res_slider, response_list, show_resp, srch):
+def _(mo, res_slider, resp_codes, response_list, show_resp, srch):
     _op = None
 
     if len(response_list) > 0:  # len(input_srch.value.strip()) > 0:
         _hdr = mo.md("## Search Summary").center()
-        _summary = show_resp(response_list, srch)
+        _summary = show_resp(response_list, srch, resp_codes)
 
         # if _bal := response.get("balance"):
         #     if _bal < 100:
@@ -550,6 +578,7 @@ def _(mo, res_slider, response_list, show_resp, srch):
                     show_data_types=False,
                     selection=None,
                     header_tooltip={
+                        "http_status": "HTTP Status code, 200 is good!",
                         "balance": "DeHashed API Credits Remaining",
                         "took": "Query milliseconds",
                         "total": f"Total results available limited by slider to {res_slider.value}",
@@ -622,18 +651,11 @@ def _(mo):
 
 
 @app.cell
-async def _(DataWell, HTTPAdapter, Retry, dw_btn, logfire, mo, pl, requests):
+async def _(DataWell, dw_btn, logfire, mo, pl, session):
     # Only run this cell when button clicked
     mo.stop(not dw_btn.value)
 
     logfire.info("Fetching DeHashed Data Wells")
-
-    retry_strategy = Retry(total=4, status_forcelist=[403, 429], backoff_factor=2)
-
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-
-    session = requests.Session()
-    session.mount("https://", adapter)
 
 
     # Get the first batch of datawells to determine
@@ -649,7 +671,8 @@ async def _(DataWell, HTTPAdapter, Retry, dw_btn, logfire, mo, pl, requests):
         1 if (_total_wells % _page_count) > 0 else 0
     )
 
-    logfire.info(f"There are {pages} pages of DeHashed Data Well entries")
+    logfire.info("There are {dw_pages} pages of DeHashed Data Well entries",
+                 dw_pages=pages)
 
     _datawell_list = []
 
