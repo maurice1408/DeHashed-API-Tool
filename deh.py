@@ -10,17 +10,17 @@
 #   "logfire",
 #   "vegafusion==2.0.3",
 #   "vl-convert-python==1.9.0.post1",
+#   "mohtml>=0.1.11",
 # ]
+# [tool.marimo.opengraph]
+# title = "DeHashed Search"
+# description = "Search dehashed.com via the API"
 # ///
 
 import marimo
 
-__generated_with = "0.23.0"
+__generated_with = "0.23.2"
 app = marimo.App(width="medium", app_title="DeHashed")
-
-with app.setup:
-    # Initialization code that runs before all other cells
-    pass
 
 
 @app.cell
@@ -44,6 +44,8 @@ def _():
     import asyncio
 
     import logfire
+
+    from mohtml import div
 
     # api_key = "wAHd3cTDijZItfXV2wYJLNYypfFgHrjedUBvpK6owbUVLhqWkPDOqnI="
     return (
@@ -96,8 +98,34 @@ def _(HTTPAdapter, Retry, requests):
 
 
 @app.cell
+def _(mo):
+    def show_bookmarked(dl_table):
+
+        try:
+            if hasattr(dl_table, "value"):
+                if len(dl_table.value) > 0:
+                    v = mo.vstack(
+                        [mo.md("**Bookmarked Entries**").center(), dl_table.value]
+                    )
+                else:
+                    return None
+
+                return v
+            else:
+                print("show_bookmarked dl_table.value is NULL")
+                return None
+        except Exception as e:
+            print(f"show_bookmarked exception: {e}")
+            # logfire.error("Error in show_bookmarked")
+            return None
+
+    return (show_bookmarked,)
+
+
+@app.cell
 def _(mo, pl):
     def disply_res(results):
+
         df = pl.DataFrame(results)
         # df_str = conv_to_str(df)
         y = mo.ui.table(
@@ -124,7 +152,6 @@ async def get_datawells(session, qry_count: int, qry_page: int) -> dict:
     if r.status_code == 200:
         j = r.json()
     else:
-        print(f"Request returned {r.status_code}")
         j = {}
 
     return j
@@ -242,24 +269,6 @@ def _(Response, logfire, pl, settings):
 
         return pl.DataFrame(responses)
 
-        #        return mo.callout(
-        #         f"""
-        #         Error: {rsp["error"]}
-        #         """,
-        #         kind="warn",
-        #     )
-        # else:
-        # return mo.md(f"""
-        #    The search against **{srch}** returned
-        #    **{len(rsp["entries"])}** entries in **{rsp["took"]}**,
-        #    you have a remaining balance of **{rsp["balance"]}** API calls.
-        #    """
-        #     srch_term = mo.stat(label="Search Term", value=srch)
-        #     srch_ent = mo.stat(label="Entries Returned", value=len(rsp["entries"]))
-        #     srch_time = mo.stat(label="Execution Time", value=rsp["took"])
-        #     # srch_bal = mo.stat(label="API Balance", value=rsp["balance"])
-
-        #     return mo.hstack(items=[srch_term, srch_ent, srch_time])
     return (show_resp,)
 
 
@@ -272,7 +281,21 @@ def _(requests):
 
         return ipv4
 
-    return (get_ipaddr,)
+
+    def get_ip_lite(ipv4):
+
+        token = "4b7d18691f210c"
+
+        url = f"https://api.ipinfo.io/lite/{ipv4}?token={token}"
+
+        resp = requests.get(url)
+
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            return {}
+
+    return get_ip_lite, get_ipaddr
 
 
 @app.cell
@@ -407,8 +430,19 @@ def _(key):
 
 
 @app.cell
-def _(get_ipaddr, mo):
-    info_stat = mo.hstack([mo.stat(value=get_ipaddr(), label="IP Address")])
+def _(get_ip_lite, get_ipaddr, mo):
+    _ip_addr = get_ipaddr()
+    _ip_geo = get_ip_lite(_ip_addr)
+
+    info_stat = mo.hstack(
+        [
+            mo.stat(value=_ip_addr, label="IP Address"),
+            mo.stat(
+                value=f"{_ip_geo.get('country', 'N/A')} / {_ip_geo.get('continent', '')}",
+                label="Country",
+            ),
+        ]
+    )
     info_stat
     return
 
@@ -556,20 +590,6 @@ def _(mo, res_slider, resp_codes, response_list, show_resp, srch):
         _hdr = mo.md("## Search Summary").center()
         _summary = show_resp(response_list, srch, resp_codes)
 
-        # if _bal := response.get("balance"):
-        #     if _bal < 100:
-        #         _callout = mo.callout(
-        #             f"Low API credit balance: {_bal}", kind="warn"
-        #         )
-        #     else:
-        #         _callout = mo.callout(
-        #             f"Balance is {_bal} API credits", kind="info"
-        #         )
-        # else:
-        #     _callout = mo.callout("no balance returned", kind="warn")
-
-        # _op = mo.vstack(items=[_stat, _callout])
-
         _op = mo.vstack(
             [
                 _hdr,
@@ -609,14 +629,15 @@ def _(Dehashed, response_list, srch):
 @app.cell
 def _(detail_list, disply_res, mo, response_list):
     r = None
+    dl = None
 
     try:
         if len(response_list) > 0:
             if len(detail_list) > 0:
                 dl = disply_res(detail_list)
-                r = mo.vstack([mo.md("## Search Detail").center(), dl])
+                r = mo.vstack([mo.md("**Search Detail**").center(), dl])
             else:
-                r = mo.md(f"No results found")
+                r = mo.md("No results found")
     except:
         pass
 
@@ -625,16 +646,18 @@ def _(detail_list, disply_res, mo, response_list):
 
 
 @app.cell
-def _(dl, response_list):
+def _(dl, show_bookmarked):
     # Catch bookmarked results
-    v = None
+    # v = None
 
-    try:
-        if len(response_list):
-            v = dl.value
-    except:
-        pass
-    v
+    # try:
+    #    if len(response_list):
+    #        v = dl.value
+    # except:
+    #    pass
+    # v
+
+    show_bookmarked(dl)
     return
 
 
@@ -671,8 +694,9 @@ async def _(DataWell, dw_btn, logfire, mo, pl, session):
         1 if (_total_wells % _page_count) > 0 else 0
     )
 
-    logfire.info("There are {dw_pages} pages of DeHashed Data Well entries",
-                 dw_pages=pages)
+    logfire.info(
+        "There are {dw_pages} pages of DeHashed Data Well entries", dw_pages=pages
+    )
 
     _datawell_list = []
 
@@ -709,8 +733,13 @@ async def _(DataWell, dw_btn, logfire, mo, pl, session):
         show_data_types=False,
         selection="multi",
     )
+    return (tbl_dw,)
 
-    tbl_dw
+
+@app.cell
+def _(mo, show_bookmarked, tbl_dw):
+    _v_dw = mo.vstack([tbl_dw, show_bookmarked(tbl_dw)])
+    _v_dw
     return
 
 
