@@ -19,7 +19,7 @@
 
 import marimo
 
-__generated_with = "0.23.2"
+__generated_with = "0.24.0"
 app = marimo.App(width="medium", app_title="DeHashed")
 
 
@@ -69,13 +69,18 @@ def _():
 def _(dataclass, dotenv_values, get_ipaddr, logfire):
     env_settings = dotenv_values(".env")
 
-
     @dataclass
     class Settings:
-        deh_api_key: str = env_settings["deh_api_key"]
-        logfire_token: str = env_settings["logfire_token"]
-        low_balance_alert: int = env_settings["low_balance_alert"]
-
+        # deh_api_key: str = env_settings["deh_api_key"]
+        # logfire_token: str = env_settings["logfire_token"]
+        # low_balance_alert: int = env_settings["low_balance_alert"]
+        deh_api_key = (
+            "9n7d1t3A+WlqnaSQ9RFHAr28BF7lF8ScGSTO6ok0DwcVgpKBiD1jeg=="
+        )
+        logfire_token = (
+            "pylf_v1_eu_CBXVK697GrxCT11jysbwN6DTJH52GXZ3JsNLNghnWnp1"
+        )
+        low_balance_alert = 500
 
     settings = Settings()
 
@@ -105,7 +110,10 @@ def _(mo):
             if hasattr(dl_table, "value"):
                 if len(dl_table.value) > 0:
                     v = mo.vstack(
-                        [mo.md("**Bookmarked Entries**").center(), dl_table.value]
+                        [
+                            mo.md("**Bookmarked Entries**").center(),
+                            dl_table.value,
+                        ]
                     )
                 else:
                     return None
@@ -209,7 +217,6 @@ def _(api_key, hashlib, requests):
     def get_sha256(password: str) -> str:
         return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
-
     def v2_search_password(password: str) -> dict:
         sha256_hash = get_sha256(password)
         res = requests.post(
@@ -259,7 +266,9 @@ def _(Response, logfire, pl, settings):
                     balance=r.get("balance", 0),
                 )
 
-                if int(r.get("balance", "0")) < int(settings.low_balance_alert):
+                if int(r.get("balance", "0")) < int(
+                    settings.low_balance_alert
+                ):
                     logfire.warning(
                         "Balance is low: {balance}",
                         balance=int(r.get("balance", "0")),
@@ -280,7 +289,6 @@ def _(requests):
         ipv4 = str(requests.get(url).text).strip()
 
         return ipv4
-
 
     def get_ip_lite(ipv4):
 
@@ -306,7 +314,6 @@ def _(Annotated, Any, BaseModel, BeforeValidator):
         else:
             return value
 
-
     class Dehashed(BaseModel):
         search_value: str = ""
         id: str
@@ -323,11 +330,10 @@ def _(Annotated, Any, BaseModel, BeforeValidator):
         company: Annotated[str, BeforeValidator(ensure_string)] = None
         url: Annotated[str, BeforeValidator(ensure_string)] = None
         social: Annotated[str, BeforeValidator(ensure_string)] = None
-        cryptocurrency_address: Annotated[str, BeforeValidator(ensure_string)] = (
-            None
-        )
+        cryptocurrency_address: Annotated[
+            str, BeforeValidator(ensure_string)
+        ] = None
         database_name: str
-
 
     class Response(BaseModel):
         search: str = ""
@@ -336,7 +342,6 @@ def _(Annotated, Any, BaseModel, BeforeValidator):
         took: str = ""
         total: int = 0
         error: str = ""
-
 
     class DataWell(BaseModel):
         name: Annotated[str, BeforeValidator(ensure_string)] = None
@@ -473,7 +478,8 @@ def _(mo):
 @app.cell
 def _(dedupe_check, mo, page_number, res_slider, search_type):
     mo.vstack(
-        align="center", items=[res_slider, page_number, dedupe_check, search_type]
+        align="center",
+        items=[res_slider, page_number, dedupe_check, search_type],
     )
     return
 
@@ -508,7 +514,9 @@ def _(fileup, input_srch, logfire, mo):
 
         else:
             if len(fileup.contents()):
-                srch = [i.decode() for i in fileup.contents().split(b"\n")[:-1]]
+                srch = [
+                    i.decode() for i in fileup.contents().split(b"\n")[:-1]
+                ]
                 logfire.info(
                     "filename: {filename}, entries: {entries}",
                     filename=fileup.name(),
@@ -680,7 +688,6 @@ async def _(DataWell, dw_btn, logfire, mo, pl, session):
 
     logfire.info("Fetching DeHashed Data Wells")
 
-
     # Get the first batch of datawells to determine
     # the totall number of datawells and therefore
     # how many pages there are
@@ -695,7 +702,8 @@ async def _(DataWell, dw_btn, logfire, mo, pl, session):
     )
 
     logfire.info(
-        "There are {dw_pages} pages of DeHashed Data Well entries", dw_pages=pages
+        "There are {dw_pages} pages of DeHashed Data Well entries",
+        dw_pages=pages,
     )
 
     _datawell_list = []
@@ -726,7 +734,6 @@ async def _(DataWell, dw_btn, logfire, mo, pl, session):
     )
 
     _pl_dw = _pl_dw.drop("date")
-
 
     tbl_dw = mo.ui.table(
         _pl_dw,
